@@ -3,15 +3,21 @@ package job
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"testing"
 )
 
 func TestS3Upload(t *testing.T) {
+	endpoint := "miniotest:9000"
+	mh := os.Getenv("MINIO_HOST")
+	if mh != "" {
+		endpoint = mh + ":9000"
+	}
 	os1 := ObjectStore{
 		AccessKey: "minioadminuser",
 		SecretKey: "minioadminpassword",
-		Endpoint:  "miniotest:9000",
+		Endpoint:  endpoint,
 		Region:    "ap-northeast-1",
 	}
 	err := os1.Init()

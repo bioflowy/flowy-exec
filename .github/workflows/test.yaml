@@ -11,16 +11,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
 
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.18
+      - name: run minio
+        run: >
+          ls -la .devcontainer/minio &&
+          docker run -d -p 9000:9000 --name minio
+          -e "MINIO_ROOT_USER=minioadminuser"
+          -e "MINIO_ROOT_PASSWORD=minioadminpassword"
+          -v $(pwd)/.devcontainer/minio/data:/export
+          minio/minio server /export
 
-    - name: Get dependencies
-      run: go get -v -t -d ./...g
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
 
-    - name: Test code
-      run: go test -v ./...
+      - name: Get dependencies
+        run: go get -v -t -d ./...g
+
+      - name: Test code
+        run: go test -v ./...
+        env:
+          MINIO_HOST: localhost
