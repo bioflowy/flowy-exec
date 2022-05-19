@@ -54,6 +54,7 @@ services:
         MINIO_ROOT_USER: minioadminuser
         MINIO_ROOT_PASSWORD: minioadminpassword
     entrypoint: bash
-    command: -c "/opt/bin/minio server /export  --console-address :9001"
-    volumes:
-        - ./minio/data:/export
+    command: -c "
+      mkdir -p /export/objectstoragetest;
+      mkdir -p /export/.minio.sys/buckets/objectstoragetest;
+      /opt/bin/minio server /export  --console-address :9001"
