@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -60,6 +61,10 @@ func (o *ObjectStore) Init() error {
 	var endpoints *string
 	if o.Endpoint != "" {
 		endpoints = &o.Endpoint
+	}
+	tmp := os.Getenv("OBJECTSTORE_ENDPOINT")
+	if tmp != "" {
+		endpoints = &tmp
 	}
 	config := &aws.Config{
 		Region:           aws.String(o.Region),
@@ -168,7 +173,6 @@ func (p *ObjectStoreWriterCreator) Init() error {
 			len:        0,
 			partNumber: 1,
 		}
-		p.uploader = &uploader
 		p.uploader = &uploader
 	}
 	return nil

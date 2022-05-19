@@ -58,3 +58,7 @@ services:
       mkdir -p /export/objectstoragetest;
       mkdir -p /export/.minio.sys/buckets/objectstoragetest;
       /opt/bin/minio server /export  --console-address :9001"
+
+
+
+

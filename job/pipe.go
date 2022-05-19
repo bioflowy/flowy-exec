@@ -66,6 +66,14 @@ func CreateHandlers(jobs []*Job) []*PipeHandler {
 						Path: output.Path,
 					},
 				}
+			case ObjectStrage:
+				m[output.Name] = &PipeHandler{
+					Input: &ObjectStoreReaderCreator{
+						Bucket: output.Bucket,
+						Key:    output.Key,
+						Path:   output.Path,
+					},
+				}
 			}
 		}
 		for _, input := range job.Inputs {
@@ -76,6 +84,11 @@ func CreateHandlers(jobs []*Job) []*PipeHandler {
 				out = &PipeInfo{
 					Name: input.Name,
 					Path: input.Path,
+				}
+			case ObjectStrage:
+				out = &ObjectStoreWriterCreator{
+					Bucket: input.Bucket,
+					Key:    input.Key,
 				}
 			}
 
@@ -89,7 +102,7 @@ func CreateHandlers(jobs []*Job) []*PipeHandler {
 	return rlst
 }
 
-func (p *PipeHandler) Handle(ch chan *PipeEvent) {
+func (p *PipeHandler) Handle(ch chan Event) {
 	inf, err := p.Input.CreateReader()
 	if err != nil {
 		ch <- &PipeEvent{

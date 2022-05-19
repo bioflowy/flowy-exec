@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os/exec"
 	"syscall"
 )
@@ -18,6 +20,10 @@ const (
 )
 
 type FileType int
+
+func (j JobStatus) IsFinished() bool {
+	return j == Successed || j == Failed
+}
 
 const (
 	File FileType = iota
@@ -45,7 +51,7 @@ func (r *FileType) UnmarshalJSON(data []byte) error {
 		ur = File
 	case "FIFO":
 		ur = Pipe
-	case "S3":
+	case "ObjectStore":
 		ur = ObjectStrage
 	default:
 		return fmt.Errorf("invalid FileType %s", s)
@@ -77,9 +83,10 @@ type Job struct {
 	status  JobStatus
 }
 type Workflow struct {
-	jobs     []*Job
-	handlers []*PipeHandler
-	status   JobStatus
+	Objectstore *ObjectStore
+	Jobs        []*Job
+	handlers    []*PipeHandler
+	Status      JobStatus
 }
 type Event interface {
 	GetEventType() EventType
@@ -97,10 +104,10 @@ func (*JobEvent) GetEventType() EventType {
 }
 
 type WorkflowEvent struct {
-	status    JobStatus
-	execError error
-	exitCode  int
-	message   string
+	Status    JobStatus
+	ExecError error
+	ExitCode  int
+	Message   string
 }
 
 func (we *WorkflowEvent) GetEventType() EventType {
@@ -122,9 +129,13 @@ func LoadFromFile(data []byte) ([]*Job, error) {
 	}
 	return jobs, nil
 }
-func LoadWorkflow(data []byte) (*Workflow, error) {
-	var jobs []*Job
-	if err := json.Unmarshal(data, &jobs); err != nil {
+func LoadWorkflow(reader io.Reader) (*Workflow, error) {
+	var workflow Workflow
+	data, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(data, &workflow); err != nil {
 		if jsonErr, ok := err.(*json.SyntaxError); ok {
 			problemPart := data[jsonErr.Offset-10 : jsonErr.Offset+10]
 			err = fmt.Errorf("%w ~ error near '%s' (offset %d)", err, problemPart, jsonErr.Offset)
@@ -132,41 +143,60 @@ func LoadWorkflow(data []byte) (*Workflow, error) {
 		fmt.Println(err)
 		return nil, err
 	}
-	handlers := CreateHandlers(jobs)
-	Workflow := &Workflow{
-		jobs:     jobs,
-		handlers: handlers,
-		status:   Created,
-	}
-	return Workflow, nil
+	workflow.handlers = CreateHandlers(workflow.Jobs)
+	return &workflow, nil
 }
-func (w *Workflow) ExecuteWorkflow(status_ch chan *JobEvent) error {
-	ch := make(chan error, 1)
-	chs := make([]chan *PipeEvent, len(w.handlers))
-	for _, handler := range w.handlers {
-		handler.Init()
-	}
-	for _, job := range w.jobs {
-		go ExecuteJob(job, status_ch)
-	}
-	for i, handler := range w.handlers {
-		chs[i] = make(chan *PipeEvent, 1)
-		go handler.Handle(chs[i])
-	}
-	err := <-ch
-	if err != nil {
-		return err
-	}
-	for _, ch2 := range chs {
-		pe := <-ch2
-		if pe.cause != nil {
-			return pe.cause
+func (w *Workflow) GetStatus() JobStatus {
+	status := Successed
+	for _, job := range w.Jobs {
+		if !job.status.IsFinished() {
+			return Running
 		}
-
+		if job.status == Failed {
+			status = Failed
+		}
 	}
-	return nil
+	return status
+
 }
-func ExecuteJob(job *Job, ch chan *JobEvent) {
+func (w *Workflow) ExecuteWorkflow(status_ch chan Event) error {
+	if w.Objectstore != nil {
+		err := w.Objectstore.Init()
+		if err != nil {
+			return err
+		}
+	}
+	job_event := make(chan Event, 1)
+	for _, handler := range w.handlers {
+		err := handler.Init()
+		if err != nil {
+			status_ch <- &PipeEvent{
+				cause: err,
+			}
+		}
+	}
+	for _, job := range w.Jobs {
+		go ExecuteJob(job, job_event)
+	}
+	for _, handler := range w.handlers {
+		go handler.Handle(job_event)
+	}
+	for {
+		ev := <-job_event
+		switch ev.GetEventType() {
+		case JobEvents:
+			je := ev.(*JobEvent)
+			if w.GetStatus().IsFinished() {
+				print(je.status)
+				status_ch <- &WorkflowEvent{
+					Status: w.GetStatus(),
+				}
+				return nil
+			}
+		}
+	}
+}
+func ExecuteJob(job *Job, ch chan Event) {
 	cmd := exec.Command(job.Command[0], job.Command[1:]...)
 
 	err := cmd.Start()
@@ -200,6 +230,7 @@ func ExecuteJob(job *Job, ch chan *JobEvent) {
 			panic(errors.New("Unimplemented for system where exec.ExitError.Sys() is not syscall.WaitStatus."))
 		}
 	} else {
+		job.status = Successed
 		ch <- &JobEvent{
 			job:      job,
 			status:   Successed,
