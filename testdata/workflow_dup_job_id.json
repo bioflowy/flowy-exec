@@ -1,0 +1,34 @@
+{
+  "jobs": [
+      {
+        "jobId": "command1",
+        "command": [
+            "sh",
+            "-c",
+            "ls -l >fifo1"
+        ],
+        "outputs": [
+            {
+                "name": "FIFO1",
+                "path": "fifo1",
+                "type": "FIFO"
+            }
+        ]
+      },
+      {
+        "jobId": "command1",
+          "inputs": [
+              {
+                  "name": "FIFO1",
+                  "path": "fifo2",
+                  "type": "FIFO"
+              }
+          ],
+          "command": [
+              "sh",
+              "-c",
+              "wc fifo2 > test1.stdout"
+          ]
+      }
+  ]
+}

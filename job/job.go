@@ -1,13 +1,13 @@
 package job
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"os/exec"
 	"syscall"
+	"time"
 )
 
 type JobStatus int
@@ -17,12 +17,29 @@ const (
 	Running
 	Successed
 	Failed
+	Aborted
 )
 
 type FileType int
 
 func (j JobStatus) IsFinished() bool {
-	return j == Successed || j == Failed
+	return j == Successed || j == Failed || j == Aborted
+}
+func (r JobStatus) String() string {
+	switch r {
+	case Created:
+		return "Created"
+	case Running:
+		return "Running"
+	case Successed:
+		return "Successed"
+	case Failed:
+		return "Failed"
+	case Aborted:
+		return "Aborted"
+	default:
+		return "unknown"
+	}
 }
 
 const (
@@ -61,6 +78,32 @@ func (r *FileType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (r *JobStatus) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("data should be a string, got %s", data)
+	}
+
+	switch s {
+	case Created.String():
+		*r = Created
+	case Running.String():
+		*r = Running
+	case Successed.String():
+		*r = Successed
+	case Failed.String():
+		*r = Failed
+	case Aborted.String():
+		*r = Aborted
+	default:
+		return fmt.Errorf("invalid JobStatus %s", s)
+	}
+	return nil
+}
+func (r JobStatus) MarshalJSON() ([]byte, error) {
+	return json.Marshal(r.String())
+}
+
 type Input struct {
 	Type   FileType
 	Path   string
@@ -77,9 +120,11 @@ type Output struct {
 	Key    string
 }
 type Job struct {
+	JobId   string
 	Command []string
 	Inputs  []Input
 	Outputs []Output
+	_cancel context.CancelFunc
 	status  JobStatus
 }
 type Workflow struct {
@@ -90,32 +135,51 @@ type Workflow struct {
 }
 type Event interface {
 	GetEventType() EventType
+	ToJson() (string, error)
 }
 type JobEvent struct {
-	job       *Job
-	status    JobStatus
+	JobId     string
+	Status    JobStatus
+	Occured   time.Time
 	execError error
-	exitCode  int
-	message   string
+	ExitCode  int
+	Message   string
+}
+type EventJson struct {
+	JobName string
+	Status  string
+	occured time.Time
+	message string
 }
 
 func (*JobEvent) GetEventType() EventType {
 	return JobEvents
 }
-
-type WorkflowEvent struct {
-	Status    JobStatus
-	ExecError error
-	ExitCode  int
-	Message   string
-}
-
-func (we *WorkflowEvent) GetEventType() EventType {
-	return WorkflowEvents
+func (j *JobEvent) ToJson() (string, error) {
+	b, err := json.Marshal(j)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 func (*PipeEvent) GetEventType() EventType {
 	return PipeEvents
+}
+
+func (j *PipeEvent) ToJson() (string, error) {
+	b, err := json.Marshal(j)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+func (j *WorkflowEvent) ToJson() (string, error) {
+	b, err := json.Marshal(j)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 func LoadFromFile(data []byte) ([]*Job, error) {
 	var jobs []*Job
@@ -129,85 +193,24 @@ func LoadFromFile(data []byte) ([]*Job, error) {
 	}
 	return jobs, nil
 }
-func LoadWorkflow(reader io.Reader) (*Workflow, error) {
-	var workflow Workflow
-	data, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(data, &workflow); err != nil {
-		if jsonErr, ok := err.(*json.SyntaxError); ok {
-			problemPart := data[jsonErr.Offset-10 : jsonErr.Offset+10]
-			err = fmt.Errorf("%w ~ error near '%s' (offset %d)", err, problemPart, jsonErr.Offset)
-		}
-		fmt.Println(err)
-		return nil, err
-	}
-	workflow.handlers = CreateHandlers(workflow.Jobs)
-	return &workflow, nil
-}
-func (w *Workflow) GetStatus() JobStatus {
-	status := Successed
-	for _, job := range w.Jobs {
-		if !job.status.IsFinished() {
-			return Running
-		}
-		if job.status == Failed {
-			status = Failed
-		}
-	}
-	return status
-
-}
-func (w *Workflow) ExecuteWorkflow(status_ch chan Event) error {
-	if w.Objectstore != nil {
-		err := w.Objectstore.Init()
-		if err != nil {
-			return err
-		}
-	}
-	job_event := make(chan Event, 1)
-	for _, handler := range w.handlers {
-		err := handler.Init()
-		if err != nil {
-			status_ch <- &PipeEvent{
-				cause: err,
-			}
-		}
-	}
-	for _, job := range w.Jobs {
-		go ExecuteJob(job, job_event)
-	}
-	for _, handler := range w.handlers {
-		go handler.Handle(job_event)
-	}
-	for {
-		ev := <-job_event
-		switch ev.GetEventType() {
-		case JobEvents:
-			je := ev.(*JobEvent)
-			if w.GetStatus().IsFinished() {
-				print(je.status)
-				status_ch <- &WorkflowEvent{
-					Status: w.GetStatus(),
-				}
-				return nil
-			}
-		}
-	}
+func (j *Job) Cancel() {
+	j._cancel()
+	j.status = Aborted
 }
 func ExecuteJob(job *Job, ch chan Event) {
-	cmd := exec.Command(job.Command[0], job.Command[1:]...)
-
+	ctx := context.Background()
+	ctx2, cancel := context.WithCancel(ctx)
+	job._cancel = cancel
+	cmd := exec.CommandContext(ctx2, job.Command[0], job.Command[1:]...)
 	err := cmd.Start()
 	if err != nil {
 		job.status = Failed
 		ch <- &JobEvent{
-			job:       job,
-			status:    Failed,
+			JobId:     job.JobId,
+			Status:    Failed,
 			execError: err,
-			message:   err.Error(),
-			exitCode:  -1,
+			Message:   err.Error(),
+			ExitCode:  -1,
 		}
 		return
 	}
@@ -216,12 +219,22 @@ func ExecuteJob(job *Job, ch chan Event) {
 	if err != nil {
 		if e2, ok := err.(*exec.ExitError); ok {
 			if s, ok := e2.Sys().(syscall.WaitStatus); ok {
-				job.status = Failed
-				ch <- &JobEvent{
-					job:       job,
-					status:    Failed,
-					execError: err,
-					exitCode:  s.ExitStatus(),
+				if job.status == Aborted {
+					ch <- &JobEvent{
+						JobId:     job.JobId,
+						Status:    Aborted,
+						execError: err,
+						ExitCode:  s.ExitStatus(),
+					}
+
+				} else {
+					job.status = Failed
+					ch <- &JobEvent{
+						JobId:     job.JobId,
+						Status:    Failed,
+						execError: err,
+						ExitCode:  s.ExitStatus(),
+					}
 				}
 			} else {
 				panic(errors.New("Unimplemented for system where exec.ExitError.Sys() is not syscall.WaitStatus."))
@@ -232,9 +245,9 @@ func ExecuteJob(job *Job, ch chan Event) {
 	} else {
 		job.status = Successed
 		ch <- &JobEvent{
-			job:      job,
-			status:   Successed,
-			exitCode: 0,
+			JobId:    job.JobId,
+			Status:   Successed,
+			ExitCode: 0,
 		}
 	}
 }

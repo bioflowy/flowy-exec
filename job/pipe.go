@@ -9,11 +9,13 @@ import (
 type PipeInfo struct {
 	Name string
 	Path string
+	Job  *Job
 }
 type PipeEvent struct {
+	Status  JobStatus
 	cause   error
 	handler *PipeHandler
-	message string
+	Message string
 }
 
 func (p *PipeInfo) CreateReader() (io.ReadCloser, error) {
@@ -34,13 +36,16 @@ type ReaderCreator interface {
 type WriterCreator interface {
 	Init() error
 	CreateWriter() (io.WriteCloser, error)
+	Abort() error
 }
 type PipeHandler struct {
 	Input   ReaderCreator
 	Outputs []WriterCreator
+	Status  JobStatus
 }
 
 func (p *PipeHandler) Init() error {
+	p.Status = Created
 	err := p.Input.Init()
 	if err != nil {
 		return nil
@@ -48,7 +53,7 @@ func (p *PipeHandler) Init() error {
 	for _, output := range p.Outputs {
 		err := output.Init()
 		if err != nil {
-			return nil
+			return err
 		}
 	}
 	return nil
@@ -84,11 +89,13 @@ func CreateHandlers(jobs []*Job) []*PipeHandler {
 				out = &PipeInfo{
 					Name: input.Name,
 					Path: input.Path,
+					Job:  job,
 				}
 			case ObjectStrage:
 				out = &ObjectStoreWriterCreator{
 					Bucket: input.Bucket,
 					Key:    input.Key,
+					job:    job,
 				}
 			}
 
@@ -101,15 +108,28 @@ func CreateHandlers(jobs []*Job) []*PipeHandler {
 	}
 	return rlst
 }
+func (p *PipeInfo) Abort() error {
+	p.Job.Cancel()
+	return nil
+}
 
+func (p *PipeHandler) Abort() {
+	for _, output := range p.Outputs {
+		output.Abort()
+	}
+}
 func (p *PipeHandler) Handle(ch chan Event) {
+	p.Status = Running
 	inf, err := p.Input.CreateReader()
 	if err != nil {
 		ch <- &PipeEvent{
+			Status:  Failed,
 			handler: p,
 			cause:   err,
-			message: err.Error(),
+			Message: err.Error(),
 		}
+		p.Status = Failed
+		p.Abort()
 		return
 	}
 	defer inf.Close()
@@ -118,10 +138,13 @@ func (p *PipeHandler) Handle(ch chan Event) {
 		wrf, err := output.CreateWriter()
 		if err != nil {
 			ch <- &PipeEvent{
+				Status:  Failed,
 				handler: p,
 				cause:   err,
-				message: err.Error(),
+				Message: err.Error(),
 			}
+			p.Status = Failed
+			p.Abort()
 			return
 		}
 		defer wrf.Close()
@@ -138,7 +161,8 @@ func (p *PipeHandler) Handle(ch chan Event) {
 	}
 	ch <- &PipeEvent{
 		handler: p,
+		Status:  Successed,
 		cause:   nil,
-		message: "finished",
+		Message: "finished",
 	}
 }

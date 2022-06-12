@@ -1,27 +1,28 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 
 	"github.com/bioflowy/flowy-exec/job"
 )
 
-func waitForExit(status_ch chan job.Event) {
+func waitForExit(wf *job.Workflow, status_ch chan job.Event) {
 	for {
 		ev := <-status_ch
-		switch ev.GetEventType() {
-		case job.WorkflowEvents:
-			we := ev.(*job.WorkflowEvent)
-			if we.Status == job.Successed {
-				println("finished")
-				return
-			}
+		json_str, err := json.Marshal(ev)
+		if err == nil {
+			fmt.Fprintln(os.Stderr, string(json_str))
+		}
+		if wf.GetStatus().IsFinished() {
+			return
 		}
 	}
 }
 func main() {
-	f, err := os.OpenFile("../../testdata/s3_download.json", os.O_RDONLY, 0)
+	f, err := os.OpenFile("../../testdata/s3_upload.json", os.O_RDONLY, 0)
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -33,5 +34,5 @@ func main() {
 	}
 	status_ch := make(chan job.Event)
 	go Workflow.ExecuteWorkflow(status_ch)
-	waitForExit(status_ch)
+	waitForExit(Workflow, status_ch)
 }

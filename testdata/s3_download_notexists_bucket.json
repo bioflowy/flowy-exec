@@ -8,17 +8,17 @@
     },
     "jobs": [
         {
-            "outputs": [
+            "inputs": [
                 {
                     "name": "FIFO1",
                     "path": "fifo1",
                     "type": "FIFO"
                 }
             ],
-            "inputs": [
+            "outputs": [
                 {
                     "name": "FIFO1",
-                    "bucket": "objectstoragetest",
+                    "bucket": "notexists",
                     "key": "lsl.txt",
                     "type": "ObjectStore"
                 }

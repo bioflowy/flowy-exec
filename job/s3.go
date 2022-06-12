@@ -20,10 +20,10 @@ type ObjectStore struct {
 	SecretKey string
 }
 type ObjectStoreWriterCreator struct {
-	Path     string
 	Bucket   string
 	Key      string
 	uploader *ObjectStoreUploader
+	job      *Job
 }
 
 type ObjectStoreUploader struct {
@@ -73,8 +73,9 @@ func (o *ObjectStore) Init() error {
 		S3ForcePathStyle: aws.Bool(o.Endpoint != ""),
 		DisableSSL:       aws.Bool(true),
 	}
-	session_1, _ = session.NewSession(config)
-	return nil
+	var err error
+	session_1, err = session.NewSession(config)
+	return err
 
 }
 func (p *ObjectStoreReaderCreator) Init() error {
@@ -179,4 +180,8 @@ func (p *ObjectStoreWriterCreator) Init() error {
 }
 func (p *ObjectStoreWriterCreator) CreateWriter() (io.WriteCloser, error) {
 	return p.uploader, nil
+}
+func (p *ObjectStoreWriterCreator) Abort() error {
+	p.job.Cancel()
+	return nil
 }

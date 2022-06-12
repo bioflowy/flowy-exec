@@ -8,17 +8,10 @@
     },
     "jobs": [
         {
-            "outputs": [
-                {
-                    "name": "FIFO1",
-                    "path": "fifo1",
-                    "type": "FIFO"
-                }
-            ],
             "inputs": [
                 {
                     "name": "FIFO1",
-                    "bucket": "objectstoragetest",
+                    "bucket": "notexists",
                     "key": "lsl.txt",
                     "type": "ObjectStore"
                 }
@@ -26,7 +19,14 @@
             "command": [
                 "sh",
                 "-c",
-                "wc fifo1 > s3_download.stdout"
+                "ls -l >fifo1"
+            ],
+            "outputs": [
+                {
+                    "name": "FIFO1",
+                    "path": "fifo1",
+                    "type": "FIFO"
+                }
             ]
         }
     ]
