@@ -8,19 +8,18 @@
     },
     "jobs": [
         {
+            "jobId": "download",
+            "type": "ObjectStore",
+            "bucket": "notexists",
+            "key": "lsl.txt",
+            "writeTo": "FIFO1"
+        },
+        {
+            "jobId": "wordcount",
             "inputs": [
                 {
-                    "name": "FIFO1",
-                    "path": "fifo1",
-                    "type": "FIFO"
-                }
-            ],
-            "outputs": [
-                {
-                    "name": "FIFO1",
-                    "bucket": "notexists",
-                    "key": "lsl.txt",
-                    "type": "ObjectStore"
+                    "readFrom": "FIFO1",
+                    "Path": "fifo1"
                 }
             ],
             "command": [

@@ -8,26 +8,26 @@
     },
     "jobs": [
         {
-            "inputs": [
-                {
-                    "name": "FIFO1",
-                    "bucket": "notexists",
-                    "key": "lsl.txt",
-                    "type": "ObjectStore"
-                }
-            ],
+            "jobID": "ls-l",
             "command": [
                 "sh",
                 "-c",
-                "ls -l >fifo1"
+                "ls -l >fifo1;sleep 10"
             ],
             "outputs": [
                 {
-                    "name": "FIFO1",
+                    "writeTo": "FIFO1",
                     "path": "fifo1",
                     "type": "FIFO"
                 }
             ]
+        },
+        {
+            "jobId": "uploadS3",
+            "type": "ObjectStore",
+            "readFrom": "FIFO1",
+            "bucket": "notexists",
+            "key": "lsl.txt"
         }
     ]
 }

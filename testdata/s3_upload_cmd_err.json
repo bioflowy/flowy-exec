@@ -8,11 +8,12 @@
     },
     "jobs": [
         {
-            "jobID": "ls-l",
+            "jobId": "testcmd",
             "command": [
-                "sh",
-                "-c",
-                "ls -l >fifo1"
+                "../testcmd",
+                "-exitcode",
+                "222",
+                "fifo1"
             ],
             "outputs": [
                 {
