@@ -1,6 +1,8 @@
 package workflow
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -15,6 +17,14 @@ const (
 	Failed
 	Aborted
 )
+
+var job_statuses = []JobStatus{
+	Created,
+	Running,
+	Successed,
+	Failed,
+	Aborted,
+}
 
 type FileType int
 
@@ -40,6 +50,22 @@ func (r JobStatus) String() string {
 		return "unknown"
 	}
 }
+func (r *JobStatus) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("data should be a string, got %s", data)
+	}
+	for _, status := range job_statuses {
+		if status.String() == s {
+			*r = status
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid JobStatus %s", s)
+}
+func (r JobStatus) MarshalJSON() ([]byte, error) {
+	return json.Marshal(r.String())
+}
 func (r JobStatus) GetDefaultExitCode() int {
 	switch r {
 	case Created:
@@ -60,8 +86,8 @@ func (r JobStatus) GetDefaultExitCode() int {
 type JobResult struct {
 	JobId    string
 	Status   JobStatus
-	Start    time.Time
-	End      time.Time
+	Start    *time.Time
+	End      *time.Time
 	ExitCode int
 	Message  string
 }
@@ -91,7 +117,9 @@ func (*JobEvent) GetEventType() EventType {
 
 type Stream interface {
 	Abort()
+	Clear()
 	Key() string
+	Label() string
 }
 type Input interface {
 	Stream

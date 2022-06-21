@@ -51,14 +51,8 @@ services:
     image: 'minio/minio'
     container_name: miniotest
     environment:
-        MINIO_ROOT_USER: minioadminuser
-        MINIO_ROOT_PASSWORD: minioadminpassword
+        MINIO_ROOT_USER: ABCDEFGHIJKLMN
+        MINIO_ROOT_PASSWORD: ABCDEFGHI
+
     entrypoint: bash
-    command: -c "
-      mkdir -p /export/objectstoragetest;
-      mkdir -p /export/.minio.sys/buckets/objectstoragetest;
-      /opt/bin/minio server /export  --console-address :9001"
-
-
-
-
+    command: -c "/opt/bin/minio server /export  --console-address :9001"

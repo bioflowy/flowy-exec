@@ -1,6 +1,10 @@
 package workflow
 
-import "io"
+import (
+	"io"
+
+	"github.com/sirupsen/logrus"
+)
 
 type PipeHandler struct {
 	output Output
@@ -64,6 +68,7 @@ func (p *PipeHandler) Handle() {
 	writers := make([]io.WriteCloser, len(p.inputs))
 	reader, err := p.output.GetReader()
 	if err != nil {
+		logrus.WithError(err).Warn("Cannot get reader")
 		p.AbortAll()
 		return
 	}
@@ -73,6 +78,8 @@ func (p *PipeHandler) Handle() {
 		if err == nil {
 			writers[idx] = writer
 			defer writer.Close()
+		} else {
+			logrus.WithError(err).Warn("Cannot get writer")
 		}
 	}
 	if p.checkWriters(writers) {
@@ -104,17 +111,23 @@ func (p *PipeHandler) Handle() {
 		}
 		if err != nil {
 			if err != io.EOF {
+				logrus.WithError(err).Warn("error while reading or writing")
 				p.AbortAll()
 			}
+			logrus.Info("reading is finished")
 			break
 		}
 	}
 }
 func (p *PipeHandler) Finished() {
 	if p.output.IsFailed() {
-		// If an job fails,next step job status must be aborted even if exitCode is 0
+		// If an job fails,next step job status must be aborted even if the job is successed.
 		for _, input := range p.inputs {
 			input.Abort()
 		}
+	}
+	p.output.Clear()
+	for _, input := range p.inputs {
+		input.Clear()
 	}
 }

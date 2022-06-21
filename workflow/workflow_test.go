@@ -23,7 +23,7 @@ func testWorkflow(t *testing.T, path string, expected *WorkflowResult) {
 func TestS3DownloadWorkflow(t *testing.T) {
 	evs := WorkflowResult{
 		Status: Successed,
-		results: []*JobResult{
+		Results: []*JobResult{
 			{
 				JobId:    "download",
 				Status:   Successed,
@@ -43,7 +43,7 @@ func TestS3DownloadWorkflow(t *testing.T) {
 func TestS3UploadWorkflow(t *testing.T) {
 	evs := WorkflowResult{
 		Status: Successed,
-		results: []*JobResult{
+		Results: []*JobResult{
 			{
 				JobId:    "ls-l",
 				Status:   Successed,
@@ -62,7 +62,7 @@ func TestS3UploadWorkflow(t *testing.T) {
 func TestS3DownloadNoBucket(t *testing.T) {
 	evs := WorkflowResult{
 		Status: Failed,
-		results: []*JobResult{
+		Results: []*JobResult{
 			{
 				JobId:    "download",
 				Status:   Aborted,
@@ -81,7 +81,7 @@ func TestS3DownloadNoBucket(t *testing.T) {
 func TestS3UploadNoBucket(t *testing.T) {
 	evs := WorkflowResult{
 		Status: Failed,
-		results: []*JobResult{
+		Results: []*JobResult{
 			{
 				JobId:    "ls-l",
 				Status:   Failed,
@@ -100,7 +100,7 @@ func TestS3UploadNoBucket(t *testing.T) {
 func TestS3UploadCmdErr(t *testing.T) {
 	evs := WorkflowResult{
 		Status: Failed,
-		results: []*JobResult{
+		Results: []*JobResult{
 
 			{
 				JobId:    "testcmd",
@@ -116,29 +116,74 @@ func TestS3UploadCmdErr(t *testing.T) {
 	}
 	testWorkflow(t, "../testdata/s3_upload_cmd_err.json", &evs)
 }
+func TestS3UploadCmdErr2(t *testing.T) {
+	evs := WorkflowResult{
+		Status: Failed,
+		Results: []*JobResult{
 
-func assertJobEvent(t *testing.T, expected Event, actual Event) {
-	assert.IsType(t, expected, actual, "Must be JobEvent")
-	expectedJE := expected.(*JobEvent)
-	actualJE := actual.(*JobEvent)
-	assert.Equal(t, expectedJE.JobId, actualJE.JobId)
-	assert.Equal(t, expectedJE.ExitCode, actualJE.ExitCode)
-	assert.Equal(t, expectedJE.Status.String(), actualJE.Status.String())
-}
-func assertWorkflowEvent(t *testing.T, expected Event, actual Event) {
-	assert.IsType(t, expected, actual, "Must be WorkflowEvent")
-	expectedJE := expected.(*WorkflowEvent)
-	actualJE := actual.(*WorkflowEvent)
-	assert.Equal(t, expectedJE.ExitCode, actualJE.ExitCode)
-}
-func assertEvent(t *testing.T, expected Event, actual Event) {
-	switch expected.GetEventType() {
-	case JobEvents:
-		assertJobEvent(t, expected, actual)
-	case WorkflowEvents:
-		assertWorkflowEvent(t, expected, actual)
+			{
+				JobId:    "testcmd",
+				Status:   Failed,
+				ExitCode: 222,
+			},
+			{
+				JobId:    "wc",
+				Status:   Aborted,
+				ExitCode: -1,
+			},
+		},
 	}
+	testWorkflow(t, "../testdata/s3_upload_cmd_err2.json", &evs)
 }
+func TestForkPipe(t *testing.T) {
+	evs := WorkflowResult{
+		Status: Successed,
+		Results: []*JobResult{
+
+			{
+				JobId:    "testcmd",
+				Status:   Successed,
+				ExitCode: 0,
+			},
+			{
+				JobId:    "wordcount",
+				Status:   Successed,
+				ExitCode: 0,
+			},
+			{
+				JobId:    "grep",
+				Status:   Successed,
+				ExitCode: 0,
+			},
+		},
+	}
+	testWorkflow(t, "../testdata/forked_pipe.json", &evs)
+}
+func TestForkPipeError(t *testing.T) {
+	evs := WorkflowResult{
+		Status: Failed,
+		Results: []*JobResult{
+
+			{
+				JobId:    "testcmd",
+				Status:   Successed,
+				ExitCode: 0,
+			},
+			{
+				JobId:    "wordcount",
+				Status:   Successed,
+				ExitCode: 0,
+			},
+			{
+				JobId:    "error",
+				Status:   Failed,
+				ExitCode: 123,
+			},
+		},
+	}
+	testWorkflow(t, "../testdata/forked_pipe_error.json", &evs)
+}
+
 func assertJobResult(t *testing.T, expected *JobResult, actual *JobResult) {
 	assert.Equal(t, expected.JobId, actual.JobId)
 	assert.Equal(t, expected.Status.String(), actual.Status.String())
@@ -146,7 +191,7 @@ func assertJobResult(t *testing.T, expected *JobResult, actual *JobResult) {
 }
 func assertWorkflowResult(t *testing.T, expected *WorkflowResult, actual *WorkflowResult) {
 	assert.Equal(t, expected.Status.String(), actual.Status.String())
-	for idx, jr := range actual.results {
-		assertJobResult(t, expected.results[idx], jr)
+	for idx, jr := range actual.Results {
+		assertJobResult(t, expected.Results[idx], jr)
 	}
 }

@@ -5,11 +5,13 @@ import (
 	"flag"
 	"log"
 	"os"
+	"time"
 
 	"github.com/bioflowy/flowy-exec/workflow"
 )
 
 func main() {
+	timeout := flag.Int("timeout", 3, "timeout in second")
 	results := flag.String("results", "results.json", "results JSON File path")
 	flag.Parse()
 	args := flag.Args()
@@ -24,8 +26,18 @@ func main() {
 		log.Fatal(err)
 		return
 	}
+	go func() {
+		time.Sleep(time.Duration(*timeout) * time.Second)
+		log.Fatal("timeout has occurred")
+	}()
 	status_ch := make(chan workflow.Event, 10)
 	wr := wf.Execute(status_ch)
+	wr.Start = nil
+	wr.End = nil
+	for _, r := range wr.Results {
+		r.Start = nil
+		r.End = nil
+	}
 	b, err := json.Marshal(wr)
 	if err != nil {
 		log.Fatal(err)

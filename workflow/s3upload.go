@@ -115,6 +115,7 @@ func (p *ObjectStoreUploader) Close() error {
 	_, err = p.client.CompleteMultipartUpload(&completeInput)
 	if err != nil {
 		p.job.status = Failed
+
 	} else {
 		p.job.status = Successed
 	}
@@ -142,8 +143,8 @@ func (job *ObjectStoreUploadJob) GetResult() *JobResult {
 	return &JobResult{
 		JobId:    job.jobId,
 		Status:   job.status,
-		Start:    job.Start,
-		End:      job.End,
+		Start:    &job.Start,
+		End:      &job.End,
 		ExitCode: job.status.GetDefaultExitCode(),
 		Message:  "",
 	}
@@ -163,6 +164,8 @@ func (p *ObjectStoreUploadJob) Abort() {
 func (p *ObjectStoreUploadJob) Key() string {
 	return p.readFrom
 }
+func (job *ObjectStoreUploadJob) Clear() {
+}
 
 func (p *ObjectStoreUploadJob) GetInputs() []Input {
 	return []Input{p}
@@ -171,7 +174,9 @@ func (p *ObjectStoreUploadJob) GetInputs() []Input {
 func (p *ObjectStoreUploadJob) GetOutputs() []Output {
 	return []Output{}
 }
-
+func (p *ObjectStoreUploadJob) Label() string {
+	return p.key
+}
 func (p *ObjectStoreUploadJob) GetWriter() (io.WriteCloser, error) {
 	if session_1 == nil {
 		return nil, fmt.Errorf("s3 session is not initialized")

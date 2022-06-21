@@ -1,0 +1,54 @@
+{
+    "objectstore": {
+        "bucket": "objectstoragetest",
+        "region": "ap-northeast-1",
+        "accesskey": "minioadminuser",
+        "secretKey": "minioadminpassword",
+        "endpoint": "http://miniotest:9000"
+    },
+    "jobs": [
+        {
+            "jobId": "testcmd",
+            "command": [
+                "../testcmd",
+                "-count",
+                "4096",
+                "fifo1"
+            ],
+            "outputs": [
+                {
+                    "writeTo": "FIFO1",
+                    "path": "fifo1"
+                }
+            ]
+        },
+        {
+            "inputs": [
+                {
+                    "readFrom": "FIFO1",
+                    "path": "fifo2"
+                }
+            ],
+            "jobId": "wordcount",
+            "command": [
+                "sh",
+                "-c",
+                "wc fifo2 > wc.txt"
+            ]
+        },
+        {
+            "inputs": [
+                {
+                    "readFrom": "FIFO1",
+                    "path": "fifo3"
+                }
+            ],
+            "jobId": "error",
+            "command": [
+                "sh",
+                "-c",
+                "head -2 fifo3;exit 123"
+            ]
+        }
+    ]
+}

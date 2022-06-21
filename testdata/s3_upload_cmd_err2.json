@@ -8,26 +8,32 @@
     },
     "jobs": [
         {
-            "jobID": "ls-l",
+            "jobId": "exitWithoutOpeningPipe",
             "command": [
-                "sh",
+                "bash",
                 "-c",
-                "ls -l >fifo1"
+                "exit 123"
             ],
             "outputs": [
                 {
                     "writeTo": "FIFO1",
-                    "path": "fifo1",
-                    "type": "FIFO"
+                    "path": "fifo1"
                 }
             ]
         },
-         {
-            "jobId" : "uploadS3",
-            "type" : "ObjectStore",
-            "readFrom": "FIFO1",
-            "bucket" : "objectstoragetest",
-            "key": "lsl.txt"
+        {
+            "jobId": "wc",
+            "command": [
+                "bash",
+                "-c",
+                "wc fifo2 > wc.stdout"
+            ],
+            "inputs": [
+                {
+                    "readFrom": "FIFO1",
+                    "path": "fifo2"
+                }
+            ]
         }
-   ]
+    ]
 }

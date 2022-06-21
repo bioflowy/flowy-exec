@@ -1,0 +1,32 @@
+{
+    "jobs": [
+        {
+            "jobId": "exitWithoutOpeningOutput",
+            "command": [
+                "testcmd",
+                "-c",
+                "exit 123"
+            ],
+            "outputs": [
+                {
+                    "writeTo": "FIFO1",
+                    "path": "fifo1"
+                }
+            ]
+        },
+        {
+            "jobId": "wc",
+            "command": [
+                "bash",
+                "-c",
+                "wc fifo2 > wc.stdout"
+            ],
+            "inputs": [
+                {
+                    "readFrom": "FIFO1",
+                    "path": "fifo2"
+                }
+            ]
+        }
+    ]
+}

@@ -63,8 +63,8 @@ func (job *ObjectStoreDownloadJob) GetResult() *JobResult {
 	return &JobResult{
 		JobId:    job.jobId,
 		Status:   job.status,
-		Start:    job.Start,
-		End:      job.End,
+		Start:    &job.Start,
+		End:      &job.End,
 		ExitCode: job.status.GetDefaultExitCode(),
 		Message:  "",
 	}
@@ -84,8 +84,14 @@ func (job *ObjectStoreDownloadJob) GetInputs() []Input {
 func (job *ObjectStoreDownloadJob) GetOutputs() []Output {
 	return []Output{job}
 }
-func (p *ObjectStoreDownloadJob) IsFailed() bool {
-	return p.status.IsFailed()
+func (job *ObjectStoreDownloadJob) Label() string {
+	return job.key
+}
+
+func (job *ObjectStoreDownloadJob) IsFailed() bool {
+	return job.status.IsFailed()
+}
+func (job *ObjectStoreDownloadJob) Clear() {
 }
 
 func (job *ObjectStoreDownloadJob) Execute(ch chan Event, wg *sync.WaitGroup) {

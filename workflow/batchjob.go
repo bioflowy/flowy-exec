@@ -9,6 +9,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type BatchJob struct {
@@ -84,6 +86,26 @@ func (job *BatchJob) GetOutputs() []Output {
 	}
 	return outputs
 }
+func (job *BatchJobOutput) Label() string {
+	return job.job.JobId
+}
+func (job *BatchJobInput) Label() string {
+	return job.job.JobId
+}
+func Exists(name string) bool {
+	_, err := os.Stat(name)
+	return !os.IsNotExist(err)
+}
+func (job *BatchJobOutput) Clear() {
+	if Exists(job.path) {
+		os.Remove(job.path)
+	}
+}
+func (job *BatchJobInput) Clear() {
+	if Exists(job.path) {
+		os.Remove(job.path)
+	}
+}
 func (job *BatchJobOutput) IsFailed() bool {
 	return job.job.status.IsFailed()
 }
@@ -99,8 +121,8 @@ func (job *BatchJob) GetResult() *JobResult {
 	return &JobResult{
 		JobId:    job.JobId,
 		Status:   job.status,
-		Start:    job.Start,
-		End:      job.End,
+		Start:    &job.Start,
+		End:      &job.End,
 		ExitCode: job.ExitCode,
 		Message:  "",
 	}
@@ -108,6 +130,7 @@ func (job *BatchJob) GetResult() *JobResult {
 
 func (job *BatchJob) Execute(ch chan Event, wg *sync.WaitGroup) {
 	defer wg.Done()
+	logrus.WithFields(logrus.Fields{"jobId": job.JobId, "command": job.Command}).Info("Start Job")
 	ctx := context.Background()
 	ctx2, cancel := context.WithCancel(ctx)
 	job._cancel = cancel
@@ -123,6 +146,7 @@ func (job *BatchJob) Execute(ch chan Event, wg *sync.WaitGroup) {
 			Message:   err.Error(),
 			ExitCode:  -1,
 		}
+		logrus.WithFields(logrus.Fields{"jobId": job.JobId, "status": job.status, "exitCode": job.ExitCode}).WithError(err).Warn("Finished Job")
 		return
 	}
 	job.status = Running
@@ -166,4 +190,5 @@ func (job *BatchJob) Execute(ch chan Event, wg *sync.WaitGroup) {
 			ExitCode: 0,
 		}
 	}
+	logrus.WithFields(logrus.Fields{"jobId": job.JobId, "status": job.status, "exitCode": job.ExitCode}).Info("Finished Job")
 }

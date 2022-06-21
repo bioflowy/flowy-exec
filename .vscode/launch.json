@@ -9,7 +9,11 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "cmd/flowyexec/main.go"
+            "program": "cmd/flowyexec/main.go",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "${workspaceFolder}/tests/test_s3_download/workflow.json"
+            ]
         },
         {
             "name": "gotest",
@@ -25,10 +29,15 @@
             "mode": "auto",
             "program": "cmd/gotest/gotest.go",
             "args": [
-                "-exitCode",
-                "123",
                 "test.txt"
             ]
+        },
+        {
+            "name": "tests",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "tests/tests.go",
         }
     ]
 }

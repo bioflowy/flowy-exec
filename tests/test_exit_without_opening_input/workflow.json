@@ -1,0 +1,33 @@
+{
+    "jobs": [
+        {
+            "jobId": "ls",
+            "command": [
+                "testcmd",
+                "-count",
+                "10240",
+                "fifo1"
+            ],
+            "outputs": [
+                {
+                    "writeTo": "FIFO1",
+                    "path": "fifo1"
+                }
+            ]
+        },
+        {
+            "jobId": "exitWithoutOpeningInput",
+            "command": [
+                "bash",
+                "-c",
+                "exit 123"
+            ],
+            "inputs": [
+                {
+                    "readFrom": "FIFO1",
+                    "path": "fifo2"
+                }
+            ]
+        }
+    ]
+}

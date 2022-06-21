@@ -29,9 +29,9 @@ type Workflow struct {
 }
 type WorkflowResult struct {
 	Status  JobStatus
-	results []*JobResult
-	Start   time.Time
-	End     time.Time
+	Results []*JobResult
+	Start   *time.Time
+	End     *time.Time
 }
 type JobDto struct {
 	JobId    string
@@ -199,8 +199,8 @@ func (w *Workflow) Execute(status_ch chan Event) *WorkflowResult {
 	}
 	return &WorkflowResult{
 		Status:  w.GetStatus(),
-		results: results,
-		Start:   start,
-		End:     end,
+		Results: results,
+		Start:   &start,
+		End:     &end,
 	}
 }
