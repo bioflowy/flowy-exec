@@ -120,6 +120,7 @@ type Stream interface {
 	Clear()
 	Key() string
 	Label() string
+	UnBlock()
 }
 type Input interface {
 	Stream
@@ -134,7 +135,7 @@ type Job interface {
 	GetId() string
 	GetInputs() []Input
 	GetOutputs() []Output
-	Execute(ch chan Event, wg *sync.WaitGroup)
+	Execute(wf *Workflow, wg *sync.WaitGroup)
 	Abort()
 	GetStatus() JobStatus
 	GetResult() *JobResult

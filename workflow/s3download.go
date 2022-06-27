@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/sirupsen/logrus"
 )
 
 type ObjectStore struct {
@@ -94,14 +95,11 @@ func (job *ObjectStoreDownloadJob) IsFailed() bool {
 func (job *ObjectStoreDownloadJob) Clear() {
 }
 
-func (job *ObjectStoreDownloadJob) Execute(ch chan Event, wg *sync.WaitGroup) {
+func (job *ObjectStoreDownloadJob) Execute(wf *Workflow, wg *sync.WaitGroup) {
 	defer wg.Done()
+	defer wf.UnBlock()
 	if job.status.IsFinished() {
-		ch <- &JobEvent{
-			JobId:    job.jobId,
-			Status:   job.status,
-			ExitCode: -1,
-		}
+		logrus.WithFields(logrus.Fields{"jobId": job.jobId, "status": job.status, "exitCode": -1}).Warn("Job Failed")
 		return
 	}
 	job.status = Running
@@ -109,17 +107,9 @@ func (job *ObjectStoreDownloadJob) Execute(ch chan Event, wg *sync.WaitGroup) {
 	if status.IsFinished() {
 		job.status = status
 		if status == Successed {
-			ch <- &JobEvent{
-				JobId:    job.jobId,
-				Status:   status,
-				ExitCode: 0,
-			}
+			logrus.WithFields(logrus.Fields{"jobId": job.jobId, "status": job.status, "exitCode": 0}).Warn("Job Finished")
 		} else {
-			ch <- &JobEvent{
-				JobId:    job.jobId,
-				Status:   status,
-				ExitCode: -1,
-			}
+			logrus.WithFields(logrus.Fields{"jobId": job.jobId, "status": job.status, "exitCode": -1}).Warn("Job Failed")
 		}
 	}
 }
@@ -140,6 +130,9 @@ func (job *ObjectStoreDownloadJob) Close() error {
 
 func (job *ObjectStoreDownloadJob) Key() string {
 	return job.writeTo
+}
+func (p *ObjectStoreDownloadJob) UnBlock() {
+
 }
 
 func (job *ObjectStoreDownloadJob) GetReader() (io.ReadCloser, error) {

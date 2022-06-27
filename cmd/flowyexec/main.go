@@ -7,9 +7,13 @@ import (
 	"os"
 
 	"github.com/bioflowy/flowy-exec/workflow"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
+	formatter := &logrus.JSONFormatter{}
+	formatter.DisableTimestamp = true
+	logrus.SetFormatter(formatter)
 	results := flag.String("results", "results.json", "results JSON File path")
 	flag.Parse()
 	args := flag.Args()

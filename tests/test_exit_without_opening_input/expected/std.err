@@ -1,0 +1,7 @@
+{"command":["bash","-c","exit 123"],"jobId":"exitWithoutOpeningInput","level":"info","msg":"Start Job"}
+{"Path":"fifo1","jobId":"ls","level":"info","msg":"Opening Reader"}
+{"command":["testcmd","-count","10240","fifo1"],"jobId":"ls","level":"info","msg":"Start Job"}
+{"error":"exit status 123","exitCode":123,"jobId":"exitWithoutOpeningInput","level":"warning","msg":"Job Failed","status":"Failed"}
+{"Path":"fifo1","jobId":"ls","level":"info","msg":"Opened Reader"}
+{"error":"Job exitWithoutOpeningInput has already finished","level":"warning","msg":"Cannot get writer"}
+{"error":"signal: killed","exitCode":-1,"jobId":"ls","level":"warning","msg":"Job Aborted","status":"Aborted"}

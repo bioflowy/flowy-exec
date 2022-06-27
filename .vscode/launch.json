@@ -12,7 +12,7 @@
             "program": "cmd/flowyexec/main.go",
             "cwd": "${workspaceFolder}",
             "args": [
-                "${workspaceFolder}/tests/test_s3_download/workflow.json"
+                "${workspaceFolder}/tests/test_exit_without_opening_input/workflow.json"
             ]
         },
         {

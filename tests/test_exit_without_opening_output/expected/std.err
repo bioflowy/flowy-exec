@@ -1,0 +1,7 @@
+{"command":["bash","-c","wc fifo2 \u003e wc.stdout"],"jobId":"wc","level":"info","msg":"Start Job"}
+{"command":["bash","-c","exit 123"],"jobId":"exitWithoutOpeningOutput","level":"info","msg":"Start Job"}
+{"Path":"fifo1","jobId":"exitWithoutOpeningOutput","level":"info","msg":"Opening Reader"}
+{"error":"exit status 123","exitCode":123,"jobId":"exitWithoutOpeningOutput","level":"warning","msg":"Job Failed","status":"Failed"}
+{"Path":"fifo1","jobId":"exitWithoutOpeningOutput","level":"info","msg":"Unblock opening in read mode"}
+{"error":"Job exitWithoutOpeningOutput has already finished","level":"warning","msg":"Cannot get reader"}
+{"error":"signal: killed","exitCode":-1,"jobId":"wc","level":"warning","msg":"Job Aborted","status":"Aborted"}

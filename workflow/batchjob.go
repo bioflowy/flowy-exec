@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -25,14 +26,18 @@ type BatchJob struct {
 	End      time.Time
 }
 type BatchJobOutput struct {
-	job  *BatchJob
-	path string
-	key  string
+	job     *BatchJob
+	path    string
+	key     string
+	blocked bool
+	handler *PipeHandler
 }
 type BatchJobInput struct {
-	job  *BatchJob
-	path string
-	key  string
+	job     *BatchJob
+	path    string
+	key     string
+	blocked bool
+	handler *PipeHandler
 }
 
 func (s *BatchJobOutput) Abort() {
@@ -51,10 +56,51 @@ func (s *BatchJobInput) Key() string {
 }
 
 func (s *BatchJobInput) GetWriter() (io.WriteCloser, error) {
-	return os.OpenFile(s.path, os.O_WRONLY, 0)
+	if s.job.status.IsFinished() {
+		return nil, fmt.Errorf("Job %s has already finished", s.job.JobId)
+	}
+	logrus.WithFields(logrus.Fields{"jobId": s.job.JobId, "Path": s.path}).Info("Opening Writer")
+	s.blocked = true
+	w, err := os.OpenFile(s.path, os.O_WRONLY, 0)
+	s.blocked = false
+	if s.job.status.IsFinished() {
+		return nil, fmt.Errorf("Job %s has already finished", s.job.JobId)
+	}
+	logrus.WithFields(logrus.Fields{"jobId": s.job.JobId, "Path": s.path}).Info("Opened Writer")
+	return w, err
 }
 func (s *BatchJobOutput) GetReader() (io.ReadCloser, error) {
-	return os.OpenFile(s.path, os.O_RDONLY, 0)
+	if s.job.status.IsFinished() {
+		return nil, fmt.Errorf("Job %s has already finished", s.job.JobId)
+	}
+	logrus.WithFields(logrus.Fields{"jobId": s.job.JobId, "Path": s.path}).Info("Opening Reader")
+	s.blocked = true
+	w, err := os.OpenFile(s.path, os.O_RDONLY, 0)
+	s.blocked = false
+	if s.job.status.IsFinished() {
+		return nil, fmt.Errorf("Job %s has already finished", s.job.JobId)
+	}
+	logrus.WithFields(logrus.Fields{"jobId": s.job.JobId, "Path": s.path}).Info("Opened Reader")
+	return w, err
+}
+
+func (s *BatchJobInput) UnBlock() {
+	if s.blocked && s.job.status.IsFinished() {
+		logrus.WithFields(logrus.Fields{"jobId": s.job.JobId, "Path": s.path}).Info("Unblock opening in write mode")
+		r, err := os.OpenFile(s.path, os.O_RDONLY, 0)
+		if err == nil {
+			r.Close()
+		}
+	}
+}
+func (s *BatchJobOutput) UnBlock() {
+	if s.blocked && s.job.status.IsFinished() {
+		logrus.WithFields(logrus.Fields{"jobId": s.job.JobId, "Path": s.path}).Info("Unblock opening in read mode")
+		r, err := os.OpenFile(s.path, os.O_WRONLY, 0)
+		if err == nil {
+			r.Close()
+		}
+	}
 }
 
 func (job *BatchJob) GetId() string {
@@ -128,8 +174,9 @@ func (job *BatchJob) GetResult() *JobResult {
 	}
 }
 
-func (job *BatchJob) Execute(ch chan Event, wg *sync.WaitGroup) {
+func (job *BatchJob) Execute(wf *Workflow, wg *sync.WaitGroup) {
 	defer wg.Done()
+	defer wf.UnBlock()
 	logrus.WithFields(logrus.Fields{"jobId": job.JobId, "command": job.Command}).Info("Start Job")
 	ctx := context.Background()
 	ctx2, cancel := context.WithCancel(ctx)
@@ -139,13 +186,6 @@ func (job *BatchJob) Execute(ch chan Event, wg *sync.WaitGroup) {
 	err := cmd.Start()
 	if err != nil {
 		job.status = Failed
-		ch <- &JobEvent{
-			JobId:     job.JobId,
-			Status:    Failed,
-			execError: err,
-			Message:   err.Error(),
-			ExitCode:  -1,
-		}
 		logrus.WithFields(logrus.Fields{"jobId": job.JobId, "status": job.status, "exitCode": job.ExitCode}).WithError(err).Warn("Finished Job")
 		return
 	}
@@ -158,22 +198,11 @@ func (job *BatchJob) Execute(ch chan Event, wg *sync.WaitGroup) {
 				if job.status == Aborted {
 					job.status = Aborted
 					job.ExitCode = Aborted.GetDefaultExitCode()
-					ch <- &JobEvent{
-						JobId:     job.JobId,
-						Status:    Aborted,
-						execError: err,
-						ExitCode:  job.ExitCode,
-					}
-
+					logrus.WithFields(logrus.Fields{"jobId": job.JobId, "status": job.status, "exitCode": job.ExitCode}).WithError(err).Warn("Job Aborted")
 				} else {
 					job.status = Failed
 					job.ExitCode = s.ExitStatus()
-					ch <- &JobEvent{
-						JobId:     job.JobId,
-						Status:    Failed,
-						execError: err,
-						ExitCode:  s.ExitStatus(),
-					}
+					logrus.WithFields(logrus.Fields{"jobId": job.JobId, "status": job.status, "exitCode": job.ExitCode}).WithError(err).Warn("Job Failed")
 				}
 			} else {
 				panic(errors.New("unimplemented for system where exec.ExitError.Sys() is not syscall.WaitStatus"))
@@ -184,11 +213,6 @@ func (job *BatchJob) Execute(ch chan Event, wg *sync.WaitGroup) {
 	} else {
 		job.status = Successed
 		job.ExitCode = 0
-		ch <- &JobEvent{
-			JobId:    job.JobId,
-			Status:   Successed,
-			ExitCode: 0,
-		}
+		logrus.WithFields(logrus.Fields{"jobId": job.JobId, "status": job.status, "exitCode": job.ExitCode}).Info("Finished Job")
 	}
-	logrus.WithFields(logrus.Fields{"jobId": job.JobId, "status": job.status, "exitCode": job.ExitCode}).Info("Finished Job")
 }

@@ -63,6 +63,12 @@ func (p *PipeHandler) checkWriters(writers []io.WriteCloser) bool {
 }
 func (p *PipeHandler) Init() {
 }
+func (p *PipeHandler) UnBlock() {
+	p.output.UnBlock()
+	for _, input := range p.inputs {
+		input.UnBlock()
+	}
+}
 
 func (p *PipeHandler) Handle() {
 	writers := make([]io.WriteCloser, len(p.inputs))

@@ -4,7 +4,7 @@ if [ -d actual ] ; then
 fi
 mkdir actual
 cd actual
-flowytest ../workflow.json
+flowytest ../workflow.json >std.out 2>std.err
 echo "$?" > exitCode
 cd ..
 diff actual expected

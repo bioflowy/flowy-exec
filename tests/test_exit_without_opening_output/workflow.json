@@ -3,7 +3,7 @@
         {
             "jobId": "exitWithoutOpeningOutput",
             "command": [
-                "testcmd",
+                "bash",
                 "-c",
                 "exit 123"
             ],

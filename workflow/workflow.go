@@ -159,7 +159,11 @@ func (w *Workflow) GetStatus() JobStatus {
 func (we *WorkflowEvent) GetEventType() EventType {
 	return WorkflowEvents
 }
-
+func (w *Workflow) UnBlock() {
+	for _, handler := range w.handlers {
+		handler.UnBlock()
+	}
+}
 func (w *Workflow) Execute(status_ch chan Event) *WorkflowResult {
 	start := time.Now()
 	if w.Objectstore != nil {
@@ -172,20 +176,20 @@ func (w *Workflow) Execute(status_ch chan Event) *WorkflowResult {
 			return &WorkflowResult{}
 		}
 	}
-	handlers := CreateHandlers(w.Jobs)
-	for _, handler := range handlers {
+	w.handlers = CreateHandlers(w.Jobs)
+	for _, handler := range w.handlers {
 		handler.Init()
 	}
-	for _, handler := range handlers {
+	for _, handler := range w.handlers {
 		go handler.Handle()
 	}
 	var wg sync.WaitGroup
 	for _, job := range w.Jobs {
 		wg.Add(1)
-		go job.Execute(status_ch, &wg)
+		go job.Execute(w, &wg)
 	}
 	wg.Wait()
-	for _, handler := range handlers {
+	for _, handler := range w.handlers {
 		handler.Finished()
 	}
 	end := time.Now()

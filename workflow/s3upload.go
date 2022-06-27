@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/sirupsen/logrus"
 )
 
 type ObjectStoreUploadJob struct {
@@ -122,20 +123,20 @@ func (p *ObjectStoreUploader) Close() error {
 	p.job.closeCh <- p.job.status
 	return err
 }
-func (p *ObjectStoreUploadJob) Execute(ch chan Event, wg *sync.WaitGroup) {
+func (job *ObjectStoreUploadJob) Execute(wf *Workflow, wg *sync.WaitGroup) {
 	defer wg.Done()
-	p.status = Running
-	p.Start = time.Now()
-	status := <-p.closeCh
-	p.closeCh = nil
-
+	defer wf.UnBlock()
+	job.status = Running
+	job.Start = time.Now()
+	status := <-job.closeCh
+	job.closeCh = nil
+	job.status = status
+	job.End = time.Now()
 	if status.IsFinished() {
-		p.End = time.Now()
-		p.status = status
-		ch <- &JobEvent{
-			JobId:    p.jobId,
-			Status:   status,
-			ExitCode: status.GetDefaultExitCode(),
+		if status.IsFailed() {
+			logrus.WithFields(logrus.Fields{"jobId": job.jobId, "status": job.status, "exitCode": -1}).Warn("Job Failed")
+		} else {
+			logrus.WithFields(logrus.Fields{"jobId": job.jobId, "status": job.status, "exitCode": 0}).Warn("Job Finished")
 		}
 	}
 }
@@ -176,6 +177,9 @@ func (p *ObjectStoreUploadJob) GetOutputs() []Output {
 }
 func (p *ObjectStoreUploadJob) Label() string {
 	return p.key
+}
+func (p *ObjectStoreUploadJob) UnBlock() {
+
 }
 func (p *ObjectStoreUploadJob) GetWriter() (io.WriteCloser, error) {
 	if session_1 == nil {

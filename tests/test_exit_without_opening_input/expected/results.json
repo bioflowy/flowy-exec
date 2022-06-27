@@ -1,0 +1,1 @@
+{"Status":"Failed","Results":[{"JobId":"ls","Status":"Aborted","Start":null,"End":null,"ExitCode":-1,"Message":""},{"JobId":"exitWithoutOpeningInput","Status":"Aborted","Start":null,"End":null,"ExitCode":123,"Message":""}],"Start":null,"End":null}

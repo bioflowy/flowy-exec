@@ -8,11 +8,15 @@ import (
 	"time"
 
 	"github.com/bioflowy/flowy-exec/workflow"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
 	timeout := flag.Int("timeout", 3, "timeout in second")
 	results := flag.String("results", "results.json", "results JSON File path")
+	formatter := &logrus.JSONFormatter{}
+	formatter.DisableTimestamp = true
+	logrus.SetFormatter(formatter)
 	flag.Parse()
 	args := flag.Args()
 	f, err := os.OpenFile(args[0], os.O_RDONLY, 0)
